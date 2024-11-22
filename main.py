@@ -136,12 +136,12 @@ def add_device(user, devices_collection, users_collection):
                     {"_id": user["_id"]},
                     {"$set": {"devices": user["devices"]}}
                 )
-                print('Dispositivo cadastrado com sucesso!')
+                input('Dispositivo cadastrado com sucesso! Pressione Enter para continuar...')
                 return True
             else:
                 print('Nome do dispositivo não pode ser vazio.')
         else:
-            print('Dispositivo não cadastrado.')
+            input('Dispositivo não cadastrado. Pressione Enter para continuar...')
         retry = try_again()
 
 def generate_fake_data():
@@ -161,31 +161,26 @@ def generate_fake_data():
 
 
 def show_profile(user, all_devices_list, users_collection):
-    username = user['username']
-    password = user['password']
-    dispositivos = user['devices']
     while True:
         clear()
-        menu = require_valid_option(f'O que você deseja visualizar {username}?', ('Meus dispositivos', 'Cadastrar dispositivo', 'Dados Cadastrais', 'Voltar'))
+        menu = require_valid_option(f'O que você deseja visualizar {user["username"]}?', ('Meus dispositivos', 'Cadastrar dispositivo', 'Dados Cadastrais', 'Voltar'))
         match menu:
             case 1:
                 while True:
                     clear()
-                    if len(dispositivos) > 0:
-                        devices_nicknames = [dispositivo['nickname'] for dispositivo in dispositivos]
-                        device_choice = require_valid_option('Visualize dados do seu dispositivo', [devices_nicknames, 'Voltar'])
-                        if device_choice == len(dispositivos)+1:  #opcao voltar
+                    if len(user['devices']) > 0:
+                        devices_nicknames = [dispositivo['nickname'] for dispositivo in user['devices']]
+                        device_choice = require_valid_option('Visualize dados do seu dispositivo', devices_nicknames + ['Voltar'])
+                        if device_choice == len(user['devices'])+1:  #opcao voltar
                             break
                         device_index = device_choice-1 #para pegar o indice correto do dispositivo
                         device = user['devices'][device_index]
+                        print(f"\nREGISTRO DO MEU DISPOSITIVO\n"
+                            f"ID: {device['id']}\n"
+                            f"Apelido: {device['nickname']}")
                         while True:
-                            clear()
-
-                            print(f"\nREGISTRO DO MEU DISPOSITIVO\n"
-                                f"ID: {device['id']}\n"
-                                f"Apelido: {device['nickname']}")
-                            action = require_valid_option('O que deseja fazer?', ('Visualizar Dados', 'Atualizar dados', 'Voltar'))
-                            if action == 1 or action == 2:
+                            action = require_valid_option('O que deseja fazer?', ('Visualizar Dados (atualizados)', 'Voltar'))
+                            if action == 1:
                                 fake_data = generate_fake_data()
                                 device['dados'] = fake_data
                                 users_collection.update_one(
@@ -199,11 +194,11 @@ def show_profile(user, all_devices_list, users_collection):
                                       f"Sensor LDR Inferior Direito: {fake_data['sensores']['inferior_direito']}\n\n"
                                       f"Ângulo Servo Motor Horizontal: {fake_data['angulos']['horizontal']}\n\n"
                                       f"Ângulo Servo Motor Vertical: {fake_data['angulos']['vertical']}\n"
-                                      f"Pressione Enter para recarregar")
+                                      f"Pressione Enter para continuar...")
                             else:
                                 break             
                     else:
-                        print('Não há dispositivos cadastrados.')
+                        input('Não há dispositivos cadastrados. Pressione Enter para continuar')
                         break
             case 2:
                 register = add_device(user, all_devices_list, users_collection)
@@ -217,10 +212,10 @@ def show_profile(user, all_devices_list, users_collection):
                     edit = require_valid_option(f'O que você deseja fazer?', ('Excluir conta', 'Editar Nome', 'Editar senha', 'Voltar'))
                     match edit:
                         case 1:
-                            remove_user = users_collection.delete_one({"username": username, "password": password})
+                            remove_user = users_collection.delete_one({"username": user["username"], "password": user["password"]})
                             if remove_user.deleted_count > 0:
-                                print("Conta excluída com sucesso.")
-                                return  # Sai da função
+                                input("Conta excluída com sucesso. Pressione enter para continuar...")
+                                return False # Sai da função
                             else:
                                 print("Falha ao excluir conta. Tente novamente.")
                         case 2:
@@ -229,7 +224,7 @@ def show_profile(user, all_devices_list, users_collection):
                             if new_username:
                                 try:
                                     edit_username = users_collection.update_one({"_id": user["_id"]}, {"$set": {"username": new_username}})
-                                    username = new_username
+                                    user["username"] = new_username
                                     print('Username alterado com sucesso!')
                                 except Exception as e:
                                     print('Falha ao editar username. Tente novamente.')
@@ -239,6 +234,7 @@ def show_profile(user, all_devices_list, users_collection):
                             if new_password:
                                 try:
                                     edit_password = users_collection.update_one({"_id": user["_id"]}, {"$set": {"password": new_password}})
+                                    user["password"] = new_password
                                     print('Senha alterada com sucesso!')
                                 except Exception as e:
                                     print('Falha ao editar senha. Tente novamente.')
@@ -292,10 +288,12 @@ def interface(users_collection, system_devices_list):
                         clear()
                         print(home_text)
                     case 2:
-                        show_profile(login_check, system_devices_list, users_collection)
+                        profile = show_profile(login_check, system_devices_list, users_collection)
+                        if not profile:
+                            break
                     case 3:
                         login_check = False
-                        print('Logout feito com sucesso!')
+                        input('Logout feito com sucesso! Pressione Enter para voltar ao Menu Principal...')
                         break
 
 
