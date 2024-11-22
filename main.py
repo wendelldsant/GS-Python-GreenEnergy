@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from random import randint
+import os
 
 import re
 
@@ -86,6 +87,7 @@ def newUser(users_collection):
                 register_choice = require_valid_option('Escolha uma opção: ', ('Registrar', 'Sair'))
                 if register_choice == 1:
                     users_collection.insert_one(newUser)
+                    print('Cadastro Feito com Sucesso!')
                     return newUser
                 else:
                     break
@@ -143,34 +145,32 @@ def add_device(user, devices_collection, users_collection):
         retry = try_again()
 
 def generate_fake_data():
-    ids = ['1234', '6969', '5151', '2424']
-    data = []
-
-    for device_id in ids:
-        data.append({
-            "id_device": device_id,
-            "sensores": {
-                "superior_esquerdo": randint(0, 1000),
-                "superior_direito": randint(0, 1000),
-                "inferior_esquerdo": randint(0, 1000),
-                "inferior_direito": randint(0, 1000)
-            },
-            "angulos": {
-                "horizontal": randint(0, 180),
-                "vertical": randint(0, 180)
-            }
-        })
+    data = {
+        "sensores": {
+            "superior_esquerdo": randint(0, 1000),
+            "superior_direito": randint(0, 1000),
+            "inferior_esquerdo": randint(0, 1000),
+            "inferior_direito": randint(0, 1000)
+        },
+        "angulos": {
+            "horizontal": randint(0, 180),
+            "vertical": randint(0, 180)
+        }
+    }
     return data
+
 
 def show_profile(user, all_devices_list, users_collection):
     username = user['username']
     password = user['password']
     dispositivos = user['devices']
     while True:
+        clear()
         menu = require_valid_option(f'O que você deseja visualizar {username}?', ('Meus dispositivos', 'Cadastrar dispositivo', 'Dados Cadastrais', 'Voltar'))
         match menu:
             case 1:
                 while True:
+                    clear()
                     if len(dispositivos) > 0:
                         devices_nicknames = [dispositivo['nickname'] for dispositivo in dispositivos]
                         device_choice = require_valid_option('Visualize dados do seu dispositivo', [devices_nicknames, 'Voltar'])
@@ -179,28 +179,41 @@ def show_profile(user, all_devices_list, users_collection):
                         device_index = device_choice-1 #para pegar o indice correto do dispositivo
                         device = user['devices'][device_index]
                         while True:
-                            print(f"ID: {device['id']}\n"
-                                f"Apelido: {device['nickname']}\n"
-                                f"Dados: {device['dados']}\n")
-                            choice = require_valid_option(f'O que você deseja fazer?', ('Atualizar', 'Voltar'))
-                            if choice == 1:
-                                all_data = generate_fake_data()
-                                chosen_device_data = list(filter(lambda data: data["id_device"] == device["id"], all_data))
-                                print(chosen_device_data)
-                                device['dados'] = chosen_device_data
+                            clear()
+
+                            print(f"\nREGISTRO DO MEU DISPOSITIVO\n"
+                                f"ID: {device['id']}\n"
+                                f"Apelido: {device['nickname']}")
+                            action = require_valid_option('O que deseja fazer?', ('Visualizar Dados', 'Atualizar dados', 'Voltar'))
+                            if action == 1 or action == 2:
+                                fake_data = generate_fake_data()
+                                device['dados'] = fake_data
+                                users_collection.update_one(
+                                    {"_id": user["_id"]},
+                                    {"$set": {"devices": user['devices']}}
+                                )
+                                input(f"\nDADOS DO MEU RASTREADOR\n"
+                                      f"Sensor LDR Superior Esquerdo: {fake_data['sensores']['superior_esquerdo']}\n\n"
+                                      f"Sensor LDR Superior Direito: {fake_data['sensores']['superior_direito']}\n\n"
+                                      f"Sensor LDR Inferior Esquerdo: {fake_data['sensores']['inferior_esquerdo']}\n\n"
+                                      f"Sensor LDR Inferior Direito: {fake_data['sensores']['inferior_direito']}\n\n"
+                                      f"Ângulo Servo Motor Horizontal: {fake_data['angulos']['horizontal']}\n\n"
+                                      f"Ângulo Servo Motor Vertical: {fake_data['angulos']['vertical']}\n"
+                                      f"Pressione Enter para recarregar")
                             else:
-                                break                
+                                break             
                     else:
                         print('Não há dispositivos cadastrados.')
                         break
             case 2:
                 register = add_device(user, all_devices_list, users_collection)
             case 3:
-                print(f'Meus Dados\n'
+                clear()
+                while True:
+                    print(f'MEUS DADOS\n'
                     f'Username: {user["username"]}\n'
                     f'Password: {user["password"]}\n'
-                )
-                while True:
+                    )
                     edit = require_valid_option(f'O que você deseja fazer?', ('Excluir conta', 'Editar Nome', 'Editar senha', 'Voltar'))
                     match edit:
                         case 1:
@@ -211,8 +224,9 @@ def show_profile(user, all_devices_list, users_collection):
                             else:
                                 print("Falha ao excluir conta. Tente novamente.")
                         case 2:
+                            print('Digite seu novo nome de usuário\n')
                             new_username = require_username(list(users_collection.find()))
-                            if username:
+                            if new_username:
                                 try:
                                     edit_username = users_collection.update_one({"_id": user["_id"]}, {"$set": {"username": new_username}})
                                     username = new_username
@@ -220,6 +234,7 @@ def show_profile(user, all_devices_list, users_collection):
                                 except Exception as e:
                                     print('Falha ao editar username. Tente novamente.')
                         case 3:
+                            print('Digite sua nova senha\n')
                             new_password = require_password()
                             if new_password:
                                 try:
@@ -232,22 +247,40 @@ def show_profile(user, all_devices_list, users_collection):
             case 4:
                 break
 
+def clear():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 def interface(users_collection, system_devices_list):
+    home_text = f"""Bem-vindo(a) ao Sun Catcher! ☀️
+                    O Sun Catcher é uma plataforma de monitoramento inteligente para dispositivos de rastreamento solar. 
+                    Aqui, você pode:
 
+                    Cadastrar e gerenciar seus dispositivos solares.
+                    Monitorar dados em tempo real, como sensores e ângulos de captação.
+                    Garantir a eficiência e o melhor aproveitamento da energia renovável.
+                   💡 Dica: Faça login ou cadastre-se para acessar todas as funcionalidades da plataforma e acompanhar o desempenho do seu sistema solar.
+
+                   🌍 Juntos por um futuro sustentável!
+                """
     while True:
+        clear()
+        print(home_text)
         nav_choice = require_valid_option('Plataforma de Monitoramento Sun Catcher', ['Home', 'Cadastre-se', 'Login'])
         match nav_choice:
             case 1:
                 login_check = False
-                print('Home')
+                print(home_text)
             case 2:
                 try:
+                    clear()
+                    print('CADASTRO DE USUÁRIO')
                     login_check = newUser(users_collection)
                 except Exception as e:
                     print(f"Erro ao cadastrar usuário: {e}")
             case 3:
                 try:
+                    clear()
+                    print('ÁREA DE LOGIN')
                     login_check = login(users_collection)
                 except Exception as e:
                     print('Erro ao entrar na conta. Tente novamente.')
@@ -256,7 +289,8 @@ def interface(users_collection, system_devices_list):
                 nav_choice = require_valid_option('Plataforma de Monitoramento Sun Catcher', ['Home','Profile','Logout'])
                 match nav_choice:
                     case 1:
-                        print('Home')
+                        clear()
+                        print(home_text)
                     case 2:
                         show_profile(login_check, system_devices_list, users_collection)
                     case 3:
