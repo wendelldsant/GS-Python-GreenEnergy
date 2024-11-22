@@ -242,6 +242,7 @@ def show_profile(user, all_devices_list, users_collection):
                             break
             case 4:
                 break
+    return True
 
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
